@@ -1,0 +1,34 @@
+# Core streaming framework
+# Removing Faust dependencies
+# faust-streaming==0.10.12
+# faust==1.9.0
+
+# Kafka
+confluent-kafka==2.9.0
+aiokafka==0.8.1
+kafka-python==2.0.2  # Adding for simpler API
+
+# AI and ML
+langchain==0.3.23
+tensorflow-serving-api==2.13.0
+evidently==0.6.7
+# Removing opentracing as it was only needed by Faust
+# opentracing>=1.3.0,<=2.4.0
+
+# Multimodal processing
+opencv-python==4.7.0.72
+pillow==11.1.0
+
+# Storage
+neo4j==5.28.1
+boto3==1.28.17
+
+# Visualization
+grafana-api==1.0.3
+prometheus-client==0.19.0  # Added for metrics collection
+
+# Utils
+python-dotenv==1.0.0
+pydantic==2.11.2
+# Removing venusian as it was only needed by Faust
+# venusian>=3.0.0
