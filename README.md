@@ -49,6 +49,12 @@ python -m src.ingestion.producers
 2. Start the data processor:
 ```bash
 python -m src.processing.agents
+
+```
+
+3. Start the Dashboard:
+```bash
+python -m src.visualization.launch_dashboard
 ```
 
 ## Project Structure

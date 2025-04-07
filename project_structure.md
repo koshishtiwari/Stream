@@ -9,12 +9,14 @@
 ├── src/                   # Source code directory
 │   ├── data_sources/      # Data source connectors
 │   │   ├── iot.py         # IoT sensor data source
-│   │   ├── social_media.py # Social media APIs
-│   │   └── securities.py   # Securities data sources
+│   │   ├── Search.py      # Online Search using Gemini LLM
+│   │   ├── alpaca.py      # Stock market data using Alpaca
+|   |   |── Reddit.py      # Reddit scraping  
+│   │   └── securities.py  # Securities data sources
 │   ├── ingestion/         # Data ingestion layer
-│   │   └── producers.py   # Faust producers
+│   │   └── producers.py   # Kafka producers
 │   ├── processing/        # Real-time processing
-│   │   ├── agents.py      # Faust agents
+│   │   ├── agents.py      # Kafka consumer agents
 │   │   └── ai_agents.py   # LangChain AI agents
 │   ├── drift_detection/   # Drift detection module
 │   │   └── metrics.py     # Drift metrics and computation
@@ -23,7 +25,11 @@
 │   ├── storage/           # Data storage layer
 │   │   └── knowledge_graph.py # Neo4j interface
 │   └── visualization/     # Visualization layer
-│       └── dashboards.py  # Grafana dashboard config
+│       ├── dashboards.py  # Grafana dashboard config
+│       ├── api_service.py # FastAPI service for dashboard data
+│       ├── dashboard.py   # Streamlit dashboard
+│       ├── metrics_collector.py # Redis metrics collector
+│       └── launch_dashboard.py  # Dashboard launcher script
 └── config/                # Configuration files
     ├── kafka.yml          # Kafka configuration
     └── ml_models.yml      # ML model configurations
