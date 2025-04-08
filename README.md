@@ -1,19 +1,17 @@
+# Stream - Real-Time Data Processing Platform
+=======
 
-# Stream
+A clean, modular platform for ingesting, processing, and visualizing streaming data from multiple sources including IoT sensors, financial markets, and news feeds.
 
+## Overview
 
-## System Overview
+Stream is built with these key components:
 
-The system is designed with multiple layers:
-- Data Sources Layer
-- Data Ingestion Layer (using confluent-kafka)
-- Real-Time Processing Layer
-- Drift Detection Module
-- Multimodal AI Module
-- Data Storage Layer
-- Visualization and Monitoring Layer
-
-For detailed system design, see [SYSTEM.md](./SYSTEM.md).
+1. **Data Sources Layer**: Connects to IoT sensors, financial markets (via Alpaca), and news sources
+2. **Data Ingestion Layer**: Uses Kafka to ingest real-time data streams
+3. **Processing Layer**: Analyzes incoming data and detects anomalies
+4. **Monitoring Layer**: Tracks system health and data flow metrics
+5. **Visualization Layer**: Provides real-time dashboards and API access to data
 
 ## Getting Started
 
@@ -21,6 +19,8 @@ For detailed system design, see [SYSTEM.md](./SYSTEM.md).
 
 - Docker and Docker Compose
 - Python 3.9+
+- For financial data: Alpaca API keys
+- For news data: Google API key with Gemini access
 
 ### Installation
 
@@ -30,37 +30,75 @@ git clone https://github.com/yourusername/Stream.git
 cd Stream
 ```
 
-2. Install required Python packages
+2. Set up environment variables (optional)
+```bash
+# Create .env file
+cp .env.example .env
+# Edit with your API keys
+nano .env
+```
+
+3. Install required Python packages
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Start the infrastructure services
+4. Start the infrastructure services
 ```bash
 docker-compose up -d
 ```
 
 ### Running the Application
 
-1. Start the IoT data producer:
+Use the centralized run.py script to start all components:
+
 ```bash
-python -m src.ingestion.producers
+# Run everything
+python run.py
+
+# Or run specific components
+python run.py --producer --processor  # Just producers and processors
+python run.py --dashboard  # Just the dashboard
+python run.py --monitoring  # Just the monitoring service
 ```
 
-2. Start the data processor:
-```bash
-python -m src.processing.agents
-
-```
-
-3. Start the Dashboard:
-```bash
-python -m src.visualization.launch_dashboard
-```
+Access the components:
+- Dashboard: http://localhost:8501
+- API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
+- Prometheus Metrics: http://localhost:8000/metrics
+- Grafana: http://localhost:3000 (admin/admin)
 
 ## Project Structure
 
-See [project_structure.md](./project_structure.md) for details about the code organization.
+```
+Stream/
+├── src/                   # Source code
+│   ├── config.py          # Centralized configuration
+│   ├── data_sources/      # Data source connectors
+│   │   ├── iot.py         # IoT sensor data source
+│   │   ├── market.py      # Financial market data
+│   │   └── search.py      # News data using Google Gemini
+│   ├── ingestion/         # Data ingestion
+│   │   └── producers.py   # Kafka producers
+│   ├── processing/        # Real-time processing
+│   │   └── agents.py      # Kafka consumer agents
+│   ├── monitoring/        # Monitoring
+│   │   └── metrics.py     # Metrics collection
+│   └── visualization/     # Visualization
+│       ├── api.py         # FastAPI service
+│       └── dashboard.py   # Streamlit dashboard
+├── docker-compose.yml     # Docker services config
+└── run.py                 # Centralized run script
+```
+
+## Development
+
+To add a new data source:
+
+1. Create a new file in `src/data_sources/`
+2. Implement a class with the same interface as existing sources
+3. Add the source to `src/ingestion/producers.py`
 
 ## License
 

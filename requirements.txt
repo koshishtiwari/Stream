@@ -1,43 +1,32 @@
-# Core streaming framework
-# Removing Faust dependencies
-# faust-streaming==0.10.12
-# faust==1.9.0
+# Core streaming
+confluent-kafka>=2.9.0
+kafka-python>=2.0.2
 
-# Kafka
-confluent-kafka==2.9.0
-aiokafka==0.8.1
-kafka-python==2.0.2  # Adding for simpler API
+# Data processing
+pandas>=2.0.0
+numpy>=1.26.0
 
 # AI and ML
-langchain==0.3.23
-tensorflow-serving-api==2.13.0
-evidently==0.6.7
-google-genai==1.9.0
+google-genai>=1.9.0
 
-# Time-series data
-alpaca-py>=0.10.0  # Added for Alpaca stock data
-pandas>=2.0.0  # Required for handling time-series data
-
-# Multimodal processing
-opencv-python==4.7.0.72
-pillow==11.1.0
+# Financial data
+alpaca-py>=0.10.0
 
 # Storage
-neo4j==5.28.1
-boto3==1.28.17
-redis>=4.5.5  # Added for real-time metrics storage
+redis>=4.5.5
 
 # API and Dashboard
-fastapi==0.115.12 # Added for API server
-uvicorn==0.22.0  # ASGI server for FastAPI
-streamlit==1.22.0  # Added for dashboard
-plotly==5.14.1  # Added for interactive charts
-websocket==0.2.1 # Added for WebSocket support
+fastapi>=0.115.12
+uvicorn>=0.22.0
+streamlit>=1.31.0
+plotly>=5.18.0
+websocket-client>=1.6.0  # Added for dashboard
+websockets>=11.0.3
 
-# Visualization
-grafana-api==1.0.3
-prometheus-client==0.19.0  # For metrics collection
+# Monitoring
+prometheus-client>=0.19.0
+requests>=2.31.0
 
 # Utils
-python-dotenv==1.0.0
-pydantic==2.11.2
+python-dotenv>=1.0.0
+pydantic>=2.11.2

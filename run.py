@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Script to run all components of the Stream application"""
+"""Main entry point for the Stream application"""
 import time
 import os
 import argparse
-import threading
 import subprocess
 import sys
 import logging
-from src.config import KAFKA_BROKER
+import threading
+from typing import List, Optional
+
+from src.config import KAFKA_BROKER, MONITORING_CONFIG
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def check_docker_services():
+def check_docker_services() -> bool:
     """Check if the required Docker services are running"""
     logger.info("Checking if Docker services are running...")
     
@@ -52,53 +54,39 @@ def check_docker_services():
         logger.error("Docker command not found. Please install Docker or start services manually.")
         return False
 
-def start_producer_thread():
-    """Import and start producer in a separate thread"""
+def start_component(module: str, function: str, args: List[str] = None) -> Optional[threading.Thread]:
+    """Import and start a component in a separate thread"""
     try:
-        # Dynamic import to avoid circular imports
-        from src.ingestion.producers import start_producer_thread as _start_producer
-        return _start_producer()
+        # Dynamically import the component
+        module_path = f"src.{module}"
+        module_obj = __import__(module_path, fromlist=[function])
+        func = getattr(module_obj, function)
+        
+        # Start the component in a thread
+        thread = threading.Thread(target=func, args=args or [])
+        thread.daemon = True
+        thread.start()
+        
+        logger.info(f"Started {module}.{function}")
+        return thread
     except ImportError as e:
-        logger.error(f"Failed to import producer: {e}")
+        logger.error(f"Failed to import {module}.{function}: {e}")
         return None
-
-def start_processor_thread():
-    """Import and start processor in a separate thread"""
-    try:
-        # Dynamic import to avoid circular imports
-        from src.processing.agents import start_processor_thread as _start_processor
-        return _start_processor()
-    except ImportError as e:
-        logger.error(f"Failed to import processor: {e}")
+    except AttributeError as e:
+        logger.error(f"Failed to find function {function} in {module}: {e}")
         return None
-
-def start_metrics_exporter():
-    """Import and start metrics exporter"""
-    try:
-        # Dynamic import to avoid circular imports
-        from src.visualization.prometheus_exporter import start_metrics_exporter as _start_metrics
-        return _start_metrics(port=8000)  # Use port 8000 for metrics
-    except ImportError as e:
-        logger.error(f"Failed to import metrics exporter: {e}")
-        return None
-
-def setup_grafana():
-    """Import and setup Grafana"""
-    try:
-        # Dynamic import to avoid circular imports
-        from src.visualization.grafana_setup import setup_grafana as _setup_grafana
-        return _setup_grafana()
-    except ImportError as e:
-        logger.error(f"Failed to import Grafana setup: {e}")
+    except Exception as e:
+        logger.error(f"Error starting {module}.{function}: {e}")
         return None
 
 def main():
     """Main entry point for running the Stream application"""
     parser = argparse.ArgumentParser(description='Run Stream application components')
-    parser.add_argument('--producer', action='store_true', help='Run the IoT data producer')
-    parser.add_argument('--processor', action='store_true', help='Run the data processor')
-    parser.add_argument('--metrics', action='store_true', help='Run the Prometheus metrics exporter')
-    parser.add_argument('--grafana', action='store_true', help='Setup Grafana dashboards')
+    parser.add_argument('--producer', action='store_true', help='Run the data producers')
+    parser.add_argument('--processor', action='store_true', help='Run the data processors')
+    parser.add_argument('--api', action='store_true', help='Run the API service')
+    parser.add_argument('--dashboard', action='store_true', help='Run the dashboard')
+    parser.add_argument('--monitoring', action='store_true', help='Run the monitoring service')
     parser.add_argument('--all', action='store_true', help='Run all components')
     parser.add_argument('--no-docker-check', action='store_true', help='Skip Docker services check')
     parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default='INFO',
@@ -110,7 +98,7 @@ def main():
     logging.getLogger().setLevel(getattr(logging, args.log_level))
     
     # Default to running everything if no args specified
-    if not (args.producer or args.processor or args.metrics or args.grafana or args.all):
+    if not (args.producer or args.processor or args.api or args.dashboard or args.monitoring or args.all):
         args.all = True
     
     # Check if Docker services are running (unless skipped)
@@ -127,34 +115,51 @@ def main():
     
     threads = []
     
+    # Start the monitoring service
+    if args.monitoring or args.all:
+        logger.info("Starting monitoring service...")
+        from src.monitoring.metrics import get_collector
+        collector = get_collector()
+        threads.append(threading.Thread(target=lambda: time.sleep(0.1)))  # Dummy thread as collector runs its own thread
+    
     # Start the producer
     if args.producer or args.all:
-        logger.info("Starting IoT data producer...")
-        producer_thread = start_producer_thread()
-        if producer_thread:
-            threads.append(producer_thread)
+        logger.info("Starting data producers...")
+        thread = start_component("ingestion.producers", "start_producer_thread")
+        if thread:
+            threads.append(thread)
     
     # Start the processor
     if args.processor or args.all:
-        logger.info("Starting data processor...")
-        processor_thread = start_processor_thread()
-        if processor_thread:
-            threads.append(processor_thread)
+        logger.info("Starting data processors...")
+        thread = start_component("processing.agents", "start_processor_thread")
+        if thread:
+            threads.append(thread)
     
-    # Start the metrics exporter
-    if args.metrics or args.all:
-        logger.info("Starting Prometheus metrics exporter...")
-        start_metrics_exporter()
+    # Start the API service
+    if args.api or args.all:
+        logger.info("Starting API service...")
+        thread = start_component("visualization.api", "start_api_server")
+        if thread:
+            threads.append(thread)
     
-    # Setup Grafana
-    if args.grafana or args.all:
-        logger.info("Setting up Grafana dashboards...")
-        setup_grafana()
+    # Start the dashboard
+    if args.dashboard or args.all:
+        logger.info("Starting dashboard...")
+        thread = start_component("visualization.dashboard", "main")
+        if thread:
+            threads.append(thread)
     
     try:
         # Keep the main thread alive
         while True:
             time.sleep(1)
+            # Check if any thread has exited
+            alive_threads = [t for t in threads if t.is_alive()]
+            if len(alive_threads) < len(threads):
+                dead_count = len(threads) - len(alive_threads)
+                logger.warning(f"{dead_count} component(s) have exited unexpectedly")
+                threads = alive_threads
     except KeyboardInterrupt:
         logger.info("Shutting down...")
 
