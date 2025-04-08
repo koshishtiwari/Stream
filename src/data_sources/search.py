@@ -58,14 +58,8 @@ class GeminiSearchDataSource:
             
             # Extract search metadata
             search_query = response.candidates[0].grounding_metadata.web_search_queries
-            sources = [site.web.title for site in response.candidates[0].grounding_metadata.grounding_chunks]
-            
-            # Log search details
-            logger.info(f"Search query: {search_query}")
-            logger.info(f"Sources used: {sources}")
             
             # Process the response text to extract news articles
-            # This is simplified - in a real application, we'd parse this more carefully
             news_items = []
             
             # Extract article metadata if available
@@ -76,7 +70,7 @@ class GeminiSearchDataSource:
                             "title": chunk.web.title,
                             "url": chunk.web.url,
                             "snippet": chunk.web.snippet,
-                            "source": "gemini_search",
+                            "source": chunk.web.url.split('/')[2],  # Extract domain as source
                             "timestamp": datetime.now().isoformat()
                         })
             
@@ -95,56 +89,6 @@ class GeminiSearchDataSource:
         except Exception as e:
             logger.error(f"Error searching for news: {e}")
             return []
-    
-    def search_information(self, query: str) -> Dict[str, Any]:
-        """
-        Search for general information on a topic
-        
-        Args:
-            query: Search query
-            
-        Returns:
-            Dictionary with search results and metadata
-        """
-        try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=query,
-                config={"tools": [{"google_search": {}}]}
-            )
-            
-            # Extract search metadata
-            search_query = response.candidates[0].grounding_metadata.web_search_queries
-            sources = []
-            
-            if hasattr(response.candidates[0].grounding_metadata, 'grounding_chunks'):
-                sources = [
-                    {
-                        "title": site.web.title, 
-                        "url": site.web.url
-                    } 
-                    for site in response.candidates[0].grounding_metadata.grounding_chunks 
-                    if hasattr(site, 'web')
-                ]
-            
-            result = {
-                "query": query,
-                "search_query_used": search_query,
-                "response": response.text,
-                "sources": sources,
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            logger.info(f"Retrieved information for query '{query}'")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error searching for information: {e}")
-            return {
-                "query": query,
-                "error": str(e),
-                "timestamp": datetime.now().isoformat()
-            }
     
     def monitor_topic(self, topic: str, interval: int = 3600, max_results: int = 3) -> Generator[List[Dict[str, Any]], None, None]:
         """
@@ -189,34 +133,3 @@ class GeminiSearchDataSource:
             "timestamp": datetime.now().isoformat(),
             "payload": data
         }
-
-# Example usage
-if __name__ == "__main__":
-    # You would need to set the GOOGLE_API_KEY environment variable
-    try:
-        search = GeminiSearchDataSource()
-        
-        # Search for news on a topic
-        news = search.search_news("artificial intelligence")
-        print(f"Found {len(news)} news items")
-        
-        for item in news:
-            print(f"Title: {item.get('title')}")
-            print(f"URL: {item.get('url')}")
-            print("---")
-        
-        # Get information on a specific query
-        info = search.search_information("What are the latest developments in quantum computing?")
-        print(f"Search Query: {info.get('search_query_used')}")
-        print(f"Response: {info.get('response')}")
-        print(f"Sources: {len(info.get('sources', []))}")
-        
-        # Monitor a topic (uncomment to run)
-        # This will continuously yield new information
-        # print("Starting monitoring for 'climate change'...")
-        # for updates in search.monitor_topic("climate change", interval=10, max_results=2):
-        #     print(f"Update: {len(updates)} new items")
-        #     time.sleep(5)  # Just for the example
-        
-    except Exception as e:
-        logger.error(f"Error in example: {e}")

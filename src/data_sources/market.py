@@ -1,4 +1,4 @@
-"""Alpaca Data Source for Historical and Real-time Stock Data"""
+"""Market Data Source using Alpaca API"""
 import os
 import json
 import time
@@ -14,12 +14,14 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import GetAssetsRequest
 from alpaca.trading.enums import AssetClass
 
+from src.config import ALPACA_API_KEY, ALPACA_API_SECRET
+
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class AlpacaDataSource:
-    """Data source for Alpaca stock market data"""
+class MarketDataSource:
+    """Data source for market data using Alpaca API"""
     
     def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None):
         """
@@ -29,8 +31,8 @@ class AlpacaDataSource:
             api_key: Alpaca API key (will use env var ALPACA_API_KEY if not provided)
             api_secret: Alpaca API secret (will use env var ALPACA_API_SECRET if not provided)
         """
-        self.api_key = api_key or os.environ.get('ALPACA_API_KEY')
-        self.api_secret = api_secret or os.environ.get('ALPACA_API_SECRET')
+        self.api_key = api_key or ALPACA_API_KEY
+        self.api_secret = api_secret or ALPACA_API_SECRET
         
         if not self.api_key or not self.api_secret:
             raise ValueError("Alpaca API credentials not found. Set ALPACA_API_KEY and ALPACA_API_SECRET environment variables or provide them as parameters.")
@@ -40,7 +42,7 @@ class AlpacaDataSource:
         self.trading_client = TradingClient(self.api_key, self.api_secret)
         self.stream_client = StockDataStream(self.api_key, self.api_secret)
         
-        logger.info("Alpaca data source initialized")
+        logger.info("Market data source initialized")
     
     def get_available_stocks(self, status: str = "active", asset_class: str = "us_equity") -> List[Dict[str, Any]]:
         """
@@ -62,10 +64,7 @@ class AlpacaDataSource:
                 "symbol": asset.symbol,
                 "name": asset.name,
                 "exchange": asset.exchange,
-                "tradable": asset.tradable,
-                "marginable": asset.marginable,
-                "shortable": asset.shortable,
-                "easy_to_borrow": asset.easy_to_borrow
+                "tradable": asset.tradable
             })
         
         logger.info(f"Retrieved {len(stock_list)} {status} {asset_class} assets")
@@ -183,29 +182,3 @@ class AlpacaDataSource:
             "timestamp": datetime.now().isoformat(),
             "payload": data
         }
-
-# Example usage
-if __name__ == "__main__":
-    # You would need to set ALPACA_API_KEY and ALPACA_API_SECRET environment variables
-    try:
-        alpaca = AlpacaDataSource()
-        
-        # Get available stocks
-        stocks = alpaca.get_available_stocks()
-        print(f"Found {len(stocks)} active stocks")
-        
-        # Get historical data for some major tech stocks
-        symbols = ["AAPL", "MSFT", "GOOGL", "AMZN"]
-        start = datetime.now() - timedelta(days=30)
-        historical_data = alpaca.get_historical_data(symbols, start)
-        
-        for symbol, data in historical_data.items():
-            print(f"{symbol} data points: {len(data)}")
-            print(data.head())
-        
-        print("Starting real-time data stream for selected symbols...")
-        # This will continuously yield real-time data
-        # for bar in alpaca.stream_real_time_data(symbols):
-        #     print(bar)
-    except Exception as e:
-        logger.error(f"Error in example: {e}")

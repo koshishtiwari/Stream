@@ -8,9 +8,10 @@ from typing import Dict, Any
 
 from confluent_kafka import Producer
 from src.data_sources.iot import IoTSensor, TemperatureSensor, IoTDataSource
-from src.data_sources.alpaca import AlpacaDataSource  # Import new Alpaca data source
-from src.data_sources.Search import GeminiSearchDataSource  # Import updated Search data source
+from src.data_sources.market import MarketDataSource  # Changed from alpaca import
+from src.data_sources.search import GeminiSearchDataSource  # Changed from Search import
 from src.config import KAFKA_BROKER
+from src.monitoring.metrics import get_collector  # Updated instrumentation import
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -33,12 +34,23 @@ class IoTProducer:
         logger.info(f"Connecting to Kafka broker at: {bootstrap_servers}")
         self.producer = Producer(self.producer_config)
         
+    @track_producer_delivery(producer_name="IoTProducer", topic="dynamic")
     def delivery_report(self, err, msg):
         """Callback invoked on message delivery success or failure"""
         if err is not None:
             logger.error(f'Message delivery failed: {err}')
         else:
             logger.info(f'Message delivered to {msg.topic()} [{msg.partition()}] at offset {msg.offset()}')
+    
+    @track_producer(producer_name="IoTProducer")
+    def produce(self, topic, value, key=None, callback=None):
+        """Instrumented produce method"""
+        self.producer.produce(
+            topic=topic,
+            value=value,
+            key=key,
+            callback=callback or self.delivery_report
+        )
         
     def start_streaming(self, interval: float = 1.0, run_forever: bool = True):
         """
@@ -55,11 +67,10 @@ class IoTProducer:
                 message_value = json.dumps(reading).encode('utf-8')
                 
                 # Send the reading to Kafka
-                self.producer.produce(
+                self.produce(
                     topic=self.topic,
                     value=message_value,
-                    key=reading.get('sensor_id', '').encode('utf-8'),
-                    callback=self.delivery_report
+                    key=reading.get('sensor_id', '').encode('utf-8')
                 )
                 
                 # For debugging
@@ -84,7 +95,7 @@ class IoTProducer:
 # New producer for stock data
 class StockDataProducer:
     """Producer for stock market data"""
-    def __init__(self, bootstrap_servers: str, topic: str, data_source: AlpacaDataSource):
+    def __init__(self, bootstrap_servers: str, topic: str, data_source: MarketDataSource):  # Changed from AlpacaDataSource
         self.topic = topic
         self.data_source = data_source
         self.producer_config = {
@@ -99,6 +110,7 @@ class StockDataProducer:
         logger.info(f"Connecting to Kafka broker at: {bootstrap_servers}")
         self.producer = Producer(self.producer_config)
         
+    @track_producer_delivery(producer_name="StockProducer", topic="dynamic")
     def delivery_report(self, err, msg):
         """Callback invoked on message delivery success or failure"""
         if err is not None:
@@ -106,6 +118,16 @@ class StockDataProducer:
         else:
             logger.info(f'Message delivered to {msg.topic()} [{msg.partition()}] at offset {msg.offset()}')
     
+    @track_producer(producer_name="StockProducer")
+    def produce(self, topic, value, key=None, callback=None):
+        """Instrumented produce method"""
+        self.producer.produce(
+            topic=topic,
+            value=value,
+            key=key,
+            callback=callback or self.delivery_report
+        )
+        
     def stream_real_time_data(self, symbols: list, run_forever: bool = True):
         """Stream real-time stock data to Kafka"""
         logger.info(f"Starting real-time stock data stream for: {symbols}")
@@ -117,11 +139,10 @@ class StockDataProducer:
                 message_value = json.dumps(self.data_source.format_for_kafka(bar)).encode('utf-8')
                 
                 # Send to Kafka
-                self.producer.produce(
+                self.produce(
                     topic=self.topic,
                     value=message_value,
-                    key=bar.get('symbol', '').encode('utf-8'),
-                    callback=self.delivery_report
+                    key=bar.get('symbol', '').encode('utf-8')
                 )
                 
                 # For debugging
@@ -161,6 +182,7 @@ class NewsProducer:
         logger.info(f"Connecting to Kafka broker at: {bootstrap_servers}")
         self.producer = Producer(self.producer_config)
         
+    @track_producer_delivery(producer_name="NewsProducer", topic="dynamic")
     def delivery_report(self, err, msg):
         """Callback invoked on message delivery success or failure"""
         if err is not None:
@@ -168,6 +190,16 @@ class NewsProducer:
         else:
             logger.info(f'Message delivered to {msg.topic()} [{msg.partition()}] at offset {msg.offset()}')
     
+    @track_producer(producer_name="NewsProducer")
+    def produce(self, topic, value, key=None, callback=None):
+        """Instrumented produce method"""
+        self.producer.produce(
+            topic=topic,
+            value=value,
+            key=key,
+            callback=callback or self.delivery_report
+        )
+        
     def monitor_topics(self, topics: list, interval: int = 3600, run_forever: bool = True):
         """Monitor news topics and send updates to Kafka"""
         logger.info(f"Starting news monitoring for topics: {topics} at {interval}s interval")
@@ -183,11 +215,10 @@ class NewsProducer:
                         message_value = json.dumps(self.data_source.format_for_kafka(item)).encode('utf-8')
                         
                         # Send to Kafka
-                        self.producer.produce(
+                        self.produce(
                             topic=self.topic,
                             value=message_value,
-                            key=topic.encode('utf-8'),
-                            callback=self.delivery_report
+                            key=topic.encode('utf-8')
                         )
                         
                     logger.info(f"Sent {len(news_items)} news items for topic '{topic}'")
@@ -240,11 +271,12 @@ def start_producer_thread():
     
     # Start stock data producer if API keys are available
     try:
-        alpaca_source = AlpacaDataSource()
+        # Updated to use MarketDataSource instead of AlpacaDataSource
+        market_source = MarketDataSource()
         stock_producer = StockDataProducer(
             bootstrap_servers=KAFKA_BROKER,
             topic='stock-data',
-            data_source=alpaca_source
+            data_source=market_source
         )
         
         # Start in a thread with popular tech stocks
