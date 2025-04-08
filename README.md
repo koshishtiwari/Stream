@@ -1,4 +1,5 @@
 # Stream - Real-Time Data Processing Platform
+=======
 
 A clean, modular platform for ingesting, processing, and visualizing streaming data from multiple sources including IoT sensors, financial markets, and news feeds.
 
